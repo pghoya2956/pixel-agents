@@ -9,6 +9,7 @@ interface ToolOverlayProps {
   officeState: OfficeState
   agents: number[]
   agentTools: Record<number, ToolActivity[]>
+  agentStatuses: Record<number, string>
   subagentCharacters: SubagentCharacter[]
   containerRef: React.RefObject<HTMLDivElement | null>
   zoom: number
@@ -21,6 +22,7 @@ function getActivityText(
   agentId: number,
   agentTools: Record<number, ToolActivity[]>,
   isActive: boolean,
+  agentStatuses: Record<number, string>,
 ): string {
   const tools = agentTools[agentId]
   if (tools && tools.length > 0) {
@@ -37,6 +39,8 @@ function getActivityText(
     }
   }
 
+  if (isActive) return 'Thinking...'
+  if (agentStatuses[agentId] === 'waiting') return 'Done'
   return 'Idle'
 }
 
@@ -44,6 +48,7 @@ export function ToolOverlay({
   officeState,
   agents,
   agentTools,
+  agentStatuses,
   subagentCharacters,
   containerRef,
   zoom,
@@ -88,9 +93,11 @@ export function ToolOverlay({
         const isSelected = selectedId === id
         const isHovered = hoveredId === id
         const isSub = ch.isSubagent
+        const isWaiting = agentStatuses[id] === 'waiting'
 
-        // Only show for hovered or selected agents
-        if (!isSelected && !isHovered) return null
+        // Show for hovered, selected, active, or waiting (done) agents
+        const shouldShow = isSelected || isHovered || ch.isActive || isWaiting
+        if (!shouldShow) return null
 
         // Position above character
         const sittingOffset = ch.state === CharacterState.TYPE ? CHARACTER_SITTING_OFFSET_PX : 0
@@ -108,7 +115,7 @@ export function ToolOverlay({
             activityText = sub ? sub.label : 'Subtask'
           }
         } else {
-          activityText = getActivityText(id, agentTools, ch.isActive)
+          activityText = getActivityText(id, agentTools, ch.isActive, agentStatuses)
         }
 
         // Determine dot color
@@ -122,6 +129,8 @@ export function ToolOverlay({
           dotColor = 'var(--pixel-status-permission)'
         } else if (isActive && hasActiveTools) {
           dotColor = 'var(--pixel-status-active)'
+        } else if (isWaiting) {
+          dotColor = 'var(--pixel-status-done)'
         }
 
         return (

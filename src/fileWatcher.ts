@@ -5,6 +5,23 @@ import type { AgentState } from './types.js';
 import { cancelWaitingTimer, cancelPermissionTimer, clearAgentActivity } from './timerManager.js';
 import { processTranscriptLine } from './transcriptParser.js';
 import { FILE_WATCHER_POLL_INTERVAL_MS, PROJECT_SCAN_INTERVAL_MS } from './constants.js';
+import { createAgentState } from './agentFactory.js';
+
+/** Derive workspace folder name from terminal cwd (multi-root only) */
+export function resolveTerminalFolderName(terminal: vscode.Terminal): string | undefined {
+	const isMultiRoot = (vscode.workspace.workspaceFolders?.length ?? 0) > 1;
+	if (!isMultiRoot) return undefined;
+
+	const shellCwd = (terminal as unknown as { shellIntegration?: { cwd?: vscode.Uri } }).shellIntegration?.cwd;
+	if (shellCwd) return path.basename(shellCwd.fsPath);
+
+	const opts = terminal.creationOptions as vscode.TerminalOptions;
+	if (opts?.cwd) {
+		const cwdStr = typeof opts.cwd === 'string' ? opts.cwd : opts.cwd.fsPath;
+		return path.basename(cwdStr);
+	}
+	return undefined;
+}
 
 export function startFileWatching(
 	agentId: number,
@@ -156,22 +173,30 @@ function scanForNewJsonlFiles(
 					webview, persistAgents,
 				);
 			} else {
-				// No active agent → try to adopt the focused terminal
-				const activeTerminal = vscode.window.activeTerminal;
-				if (activeTerminal) {
-					let owned = false;
-					for (const agent of agents.values()) {
-						if (agent.terminalRef === activeTerminal) {
-							owned = true;
-							break;
-						}
-					}
-					if (!owned) {
+				// No active agent → try to adopt an unowned terminal
+				const ownedTerminals = new Set<vscode.Terminal>();
+				for (const agent of agents.values()) {
+					ownedTerminals.add(agent.terminalRef);
+				}
+				const unowned = vscode.window.terminals.filter(t => !ownedTerminals.has(t));
+
+				if (unowned.length === 1) {
+					// Exactly 1 unowned terminal → auto-adopt
+					adoptTerminalForFile(
+						unowned[0], file, projectDir,
+						nextAgentIdRef, agents, activeAgentIdRef,
+						fileWatchers, pollingTimers, waitingTimers, permissionTimers,
+						webview, persistAgents, resolveTerminalFolderName(unowned[0]),
+					);
+				} else {
+					// Multiple unowned → try focused terminal (original behavior)
+					const activeTerminal = vscode.window.activeTerminal;
+					if (activeTerminal && !ownedTerminals.has(activeTerminal)) {
 						adoptTerminalForFile(
 							activeTerminal, file, projectDir,
 							nextAgentIdRef, agents, activeAgentIdRef,
 							fileWatchers, pollingTimers, waitingTimers, permissionTimers,
-							webview, persistAgents,
+							webview, persistAgents, resolveTerminalFolderName(activeTerminal),
 						);
 					}
 				}
@@ -180,7 +205,7 @@ function scanForNewJsonlFiles(
 	}
 }
 
-function adoptTerminalForFile(
+export function adoptTerminalForFile(
 	terminal: vscode.Terminal,
 	jsonlFile: string,
 	projectDir: string,
@@ -193,34 +218,30 @@ function adoptTerminalForFile(
 	permissionTimers: Map<number, ReturnType<typeof setTimeout>>,
 	webview: vscode.Webview | undefined,
 	persistAgents: () => void,
-): void {
+	folderName?: string,
+): number | null {
+	// Guard: prevent double-adoption of the same terminal
+	for (const agent of agents.values()) {
+		if (agent.terminalRef === terminal) {
+			console.log(`[Pixel Agents] Terminal "${terminal.name}" already owned, skipping adoption`);
+			return null;
+		}
+	}
+
 	const id = nextAgentIdRef.current++;
-	const agent: AgentState = {
-		id,
-		terminalRef: terminal,
-		projectDir,
-		jsonlFile,
-		fileOffset: 0,
-		lineBuffer: '',
-		activeToolIds: new Set(),
-		activeToolStatuses: new Map(),
-		activeToolNames: new Map(),
-		activeSubagentToolIds: new Map(),
-		activeSubagentToolNames: new Map(),
-		isWaiting: false,
-		permissionSent: false,
-		hadToolsInTurn: false,
-	};
+	const agent = createAgentState(id, terminal, projectDir, jsonlFile, { folderName });
 
 	agents.set(id, agent);
 	activeAgentIdRef.current = id;
 	persistAgents();
 
 	console.log(`[Pixel Agents] Agent ${id}: adopted terminal "${terminal.name}" for ${path.basename(jsonlFile)}`);
-	webview?.postMessage({ type: 'agentCreated', id });
+	webview?.postMessage({ type: 'agentCreated', id, folderName });
 
 	startFileWatching(id, jsonlFile, agents, fileWatchers, pollingTimers, waitingTimers, permissionTimers, webview);
 	readNewLines(id, agents, waitingTimers, permissionTimers, webview);
+
+	return id;
 }
 
 export function reassignAgentToFile(

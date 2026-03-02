@@ -1,7 +1,7 @@
 import { TileType, TILE_SIZE, CharacterState } from '../types.js'
 import type { TileType as TileTypeVal, FurnitureInstance, Character, SpriteData, Seat, FloorColor } from '../types.js'
 import { getCachedSprite, getOutlineSprite } from '../sprites/spriteCache.js'
-import { getCharacterSprites, BUBBLE_PERMISSION_SPRITE, BUBBLE_WAITING_SPRITE } from '../sprites/spriteData.js'
+import { getCharacterSprites, BUBBLE_PERMISSION_SPRITE } from '../sprites/spriteData.js'
 import { getCharacterSprite } from './characters.js'
 import { renderMatrixEffect } from './matrixEffect.js'
 import { getColorizedFloorSprite, hasFloorSprites, WALL_COLOR } from '../floorTiles.js'
@@ -20,7 +20,7 @@ import {
   BUTTON_ICON_SIZE_FACTOR,
   BUTTON_LINE_WIDTH_MIN,
   BUTTON_LINE_WIDTH_ZOOM_FACTOR,
-  BUBBLE_FADE_DURATION_SEC,
+
   BUBBLE_SITTING_OFFSET_PX,
   BUBBLE_VERTICAL_OFFSET_PX,
   FALLBACK_FLOOR_COLOR,
@@ -453,21 +453,17 @@ export function renderBubbles(
   offsetX: number,
   offsetY: number,
   zoom: number,
+  selectedId: number | null,
+  hoveredId: number | null,
 ): void {
   for (const ch of characters) {
     if (!ch.bubbleType) continue
+    // Skip canvas bubble when ToolOverlay is visible for this character
+    if (ch.id === selectedId || ch.id === hoveredId || ch.isActive) continue
+    if (ch.bubbleType === 'waiting') continue
 
-    const sprite = ch.bubbleType === 'permission'
-      ? BUBBLE_PERMISSION_SPRITE
-      : BUBBLE_WAITING_SPRITE
-
-    // Compute opacity: permission = full, waiting = fade in last 0.5s
-    let alpha = 1.0
-    if (ch.bubbleType === 'waiting' && ch.bubbleTimer < BUBBLE_FADE_DURATION_SEC) {
-      alpha = ch.bubbleTimer / BUBBLE_FADE_DURATION_SEC
-    }
-
-    const cached = getCachedSprite(sprite, zoom)
+    // After skips, only permission bubbles remain
+    const cached = getCachedSprite(BUBBLE_PERMISSION_SPRITE, zoom)
     // Position: centered above the character's head
     // Character is anchored bottom-center at (ch.x, ch.y), sprite is 16x24
     // Place bubble above head with a small gap; follow sitting offset
@@ -475,10 +471,7 @@ export function renderBubbles(
     const bubbleX = Math.round(offsetX + ch.x * zoom - cached.width / 2)
     const bubbleY = Math.round(offsetY + (ch.y + sittingOff - BUBBLE_VERTICAL_OFFSET_PX) * zoom - cached.height - 1 * zoom)
 
-    ctx.save()
-    if (alpha < 1.0) ctx.globalAlpha = alpha
     ctx.drawImage(cached, bubbleX, bubbleY)
-    ctx.restore()
   }
 }
 
@@ -576,8 +569,8 @@ export function renderFrame(
   const hoveredId = selection?.hoveredAgentId ?? null
   renderScene(ctx, allFurniture, characters, offsetX, offsetY, zoom, selectedId, hoveredId)
 
-  // Speech bubbles (always on top of characters)
-  renderBubbles(ctx, characters, offsetX, offsetY, zoom)
+  // Speech bubbles (always on top of characters; skip when ToolOverlay is visible)
+  renderBubbles(ctx, characters, offsetX, offsetY, zoom, selectedId, hoveredId)
 
   // Editor overlays
   if (editor) {

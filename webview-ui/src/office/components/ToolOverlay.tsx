@@ -3,7 +3,8 @@ import type { ToolActivity } from '../types.js'
 import type { OfficeState } from '../engine/officeState.js'
 import type { SubagentCharacter } from '../../hooks/useExtensionMessages.js'
 import { TILE_SIZE, CharacterState } from '../types.js'
-import { TOOL_OVERLAY_VERTICAL_OFFSET, CHARACTER_SITTING_OFFSET_PX } from '../../constants.js'
+import { TOOL_OVERLAY_VERTICAL_OFFSET, TOOL_OVERLAY_GAP_PX, CHARACTER_SITTING_OFFSET_PX } from '../../constants.js'
+import { defaultZoom } from '../toolUtils.js'
 
 interface ToolOverlayProps {
   officeState: OfficeState
@@ -80,6 +81,7 @@ export function ToolOverlay({
 
   const selectedId = officeState.selectedAgentId
   const hoveredId = officeState.hoveredAgentId
+  const scaleFactor = Math.min(2.0, Math.max(0.5, zoom / defaultZoom()))
 
   // All character IDs
   const allIds = [...agents, ...subagentCharacters.map((s) => s.id)]
@@ -139,8 +141,9 @@ export function ToolOverlay({
             style={{
               position: 'absolute',
               left: screenX,
-              top: screenY - 24,
-              transform: 'translateX(-50%)',
+              top: screenY - TOOL_OVERLAY_GAP_PX,
+              transform: `translateX(-50%) translateY(-100%) scale(${scaleFactor})`,
+              transformOrigin: 'center bottom',
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',

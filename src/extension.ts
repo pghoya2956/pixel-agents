@@ -14,7 +14,11 @@ export function activate(context: vscode.ExtensionContext) {
 
 	context.subscriptions.push(
 		vscode.commands.registerCommand(COMMAND_SHOW_PANEL, () => {
-			vscode.commands.executeCommand(`${VIEW_ID}.focus`);
+			if (provider.webviewView?.visible) {
+				vscode.commands.executeCommand(`${VIEW_ID}.toggleVisibility`);
+			} else {
+				vscode.commands.executeCommand(`${VIEW_ID}.focus`);
+			}
 		})
 	);
 

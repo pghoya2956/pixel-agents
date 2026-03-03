@@ -55,7 +55,14 @@
           "name": "Pixel Agents"
         }
       ]
-    }
+    },
+    "keybindings": [
+      {
+        "command": "pixel-agents.showPanel",
+        "key": "ctrl+r",
+        "mac": "cmd+r"
+      }
+    ]
   },
   "scripts": {
     "vscode:prepublish": "npm run package",

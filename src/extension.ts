@@ -15,7 +15,9 @@ export function activate(context: vscode.ExtensionContext) {
 	context.subscriptions.push(
 		vscode.commands.registerCommand(COMMAND_SHOW_PANEL, () => {
 			if (provider.webviewView?.visible) {
-				vscode.commands.executeCommand(`${VIEW_ID}.toggleVisibility`);
+				// toggleVisibility only hides the view content, not the container.
+				// toggleAuxiliaryBar collapses the entire secondary sidebar.
+				vscode.commands.executeCommand('workbench.action.toggleAuxiliaryBar');
 			} else {
 				vscode.commands.executeCommand(`${VIEW_ID}.focus`);
 			}

@@ -12,7 +12,7 @@ import {
 	sendLayout,
 	getProjectDirPath,
 } from './agentManager.js';
-import { ensureProjectScan, adoptTerminalForFile, resolveTerminalFolderName } from './fileWatcher.js';
+import { ensureProjectScan, adoptTerminalForFile, resolveProjectFolderName } from './fileWatcher.js';
 import { loadFurnitureAssets, sendAssetsToWebview, loadFloorTiles, sendFloorTilesToWebview, loadWallTiles, sendWallTilesToWebview, loadCharacterSprites, sendCharacterSpritesToWebview, loadDefaultLayout } from './assetLoader.js';
 import { WORKSPACE_KEY_AGENT_SEATS, GLOBAL_KEY_SOUND_ENABLED } from './constants.js';
 import { writeLayoutToFile, readLayoutFromFile, watchLayoutFile } from './layoutPersistence.js';
@@ -325,7 +325,7 @@ export class PixelAgentsViewProvider implements vscode.WebviewViewProvider {
 
 		this.knownJsonlFiles.add(jsonlFile);
 
-		const folderName = resolveTerminalFolderName(terminal);
+		const folderName = resolveProjectFolderName(projectDir);
 		const id = adoptTerminalForFile(
 			terminal, jsonlFile, projectDir,
 			this.nextAgentId, this.agents, this.activeAgentId,

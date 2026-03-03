@@ -1,4 +1,5 @@
 import * as fs from 'fs';
+import * as os from 'os';
 import * as path from 'path';
 import * as vscode from 'vscode';
 import type { AgentState } from './types.js';
@@ -7,18 +8,15 @@ import { processTranscriptLine } from './transcriptParser.js';
 import { FILE_WATCHER_POLL_INTERVAL_MS, PROJECT_SCAN_INTERVAL_MS } from './constants.js';
 import { createAgentState } from './agentFactory.js';
 
-/** Derive workspace folder name from terminal cwd (multi-root only) */
-export function resolveTerminalFolderName(terminal: vscode.Terminal): string | undefined {
-	const isMultiRoot = (vscode.workspace.workspaceFolders?.length ?? 0) > 1;
-	if (!isMultiRoot) return undefined;
-
-	const shellCwd = (terminal as unknown as { shellIntegration?: { cwd?: vscode.Uri } }).shellIntegration?.cwd;
-	if (shellCwd) return path.basename(shellCwd.fsPath);
-
-	const opts = terminal.creationOptions as vscode.TerminalOptions;
-	if (opts?.cwd) {
-		const cwdStr = typeof opts.cwd === 'string' ? opts.cwd : opts.cwd.fsPath;
-		return path.basename(cwdStr);
+/** Derive workspace folder name from projectDir path (multi-root only).
+ *  More reliable than reading terminal CWD, which can be stale or wrong. */
+export function resolveProjectFolderName(projectDir: string): string | undefined {
+	const folders = vscode.workspace.workspaceFolders;
+	if (!folders || folders.length <= 1) return undefined;
+	for (const folder of folders) {
+		const dirName = folder.uri.fsPath.replace(/[^a-zA-Z0-9-]/g, '-');
+		const expectedDir = path.join(os.homedir(), '.claude', 'projects', dirName);
+		if (expectedDir === projectDir) return folder.name;
 	}
 	return undefined;
 }
@@ -186,7 +184,7 @@ function scanForNewJsonlFiles(
 						unowned[0], file, projectDir,
 						nextAgentIdRef, agents, activeAgentIdRef,
 						fileWatchers, pollingTimers, waitingTimers, permissionTimers,
-						webview, persistAgents, resolveTerminalFolderName(unowned[0]),
+						webview, persistAgents, resolveProjectFolderName(projectDir),
 					);
 				} else {
 					// Multiple unowned → try focused terminal (original behavior)
@@ -196,7 +194,7 @@ function scanForNewJsonlFiles(
 							activeTerminal, file, projectDir,
 							nextAgentIdRef, agents, activeAgentIdRef,
 							fileWatchers, pollingTimers, waitingTimers, permissionTimers,
-							webview, persistAgents, resolveTerminalFolderName(activeTerminal),
+							webview, persistAgents, resolveProjectFolderName(projectDir),
 						);
 					}
 				}

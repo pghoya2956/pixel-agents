@@ -18,6 +18,7 @@ export function getProjectDirPath(cwd?: string): string | null {
 	return projectDir;
 }
 
+
 export async function launchNewTerminal(
 	nextAgentIdRef: { current: number },
 	nextTerminalIndexRef: { current: number },

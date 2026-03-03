@@ -15,8 +15,8 @@ export const WANDER_PAUSE_MIN_SEC = 2.0
 export const WANDER_PAUSE_MAX_SEC = 20.0
 export const WANDER_MOVES_BEFORE_REST_MIN = 3
 export const WANDER_MOVES_BEFORE_REST_MAX = 6
-export const SEAT_REST_MIN_SEC = 120.0
-export const SEAT_REST_MAX_SEC = 240.0
+export const SEAT_REST_MIN_SEC = 15.0
+export const SEAT_REST_MAX_SEC = 45.0
 
 // ── Matrix Effect ────────────────────────────────────────────
 export const MATRIX_EFFECT_DURATION_SEC = 0.3
@@ -74,7 +74,7 @@ export const CAMERA_FOLLOW_SNAP_THRESHOLD = 0.5
 // ── Zoom ─────────────────────────────────────────────────────
 export const ZOOM_MIN = 1
 export const ZOOM_MAX = 10
-export const ZOOM_DEFAULT_DPR_FACTOR = 1
+export const ZOOM_DEFAULT_DPR_FACTOR = 0.5
 export const ZOOM_LEVEL_FADE_DELAY_MS = 1500
 export const ZOOM_LEVEL_HIDE_DELAY_MS = 2000
 export const ZOOM_LEVEL_FADE_DURATION_SEC = 0.5
